@@ -85,7 +85,7 @@
                 <p class="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-1">Integrantes del Proyecto:</p>
                 <div class="space-y-1 text-xs text-purple-100 font-medium">
                     <div class="flex justify-between items-center gap-3">
-                        <span class="text-purple-200 font-semibold">Helen Mishel Buc</span>
+                        <span class="text-purple-200 font-semibold">Helen Mishell Buc Lorenzo</span>
                         <span class="font-mono bg-purple-950/80 text-purple-300 px-1.5 py-0.5 rounded border border-purple-600/30 text-[10px]">2990-25-27744</span>
                     </div>
                     <div class="flex justify-between items-center gap-3">
@@ -137,7 +137,7 @@
                         </div>
                         <div id="resExpDashboard" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs space-y-1">
                             <p><strong>Promedio (A):</strong> <span id="promExpDash" class="text-purple-300 font-mono">2.200</span></p>
-                            <p><strong>Desviación Muestral:</strong> <span id="incExpDash" class="text-purple-300 font-mono">0.1581</span></p>
+                            <p><strong>Error estándar de la media:</strong> <span id="incExpDash" class="text-purple-300 font-mono">0.1581</span></p>
                         </div>
                     </section>
 
@@ -210,13 +210,35 @@
         "use strict";
 
         function parsear(str) {
-            if (!str || !str.trim()) return [];
-            const partes = str.split(",");
-            const arr = partes.map(p => p.trim());
-            if (arr.some(p => p === "")) return [];
-            const nums = arr.map(Number);
-            if (!nums.every(Number.isFinite)) return [];
-            return nums;
+            if (typeof str !== "string" || !str.trim()) return [];
+            const partes = str.split(",").map(p => p.trim());
+            if (partes.some(p => p === "")) return [];
+            const nums = partes.map(Number);
+            return nums.every(Number.isFinite) ? nums : [];
+        }
+
+        function mostrarError(mensaje) {
+            alert(mensaje);
+        }
+
+        function calcularMedia(valores) {
+            return valores.reduce((a, b) => a + b, 0) / valores.length;
+        }
+
+        function calcularDesviacionMuestral(valores, media = calcularMedia(valores)) {
+            if (valores.length < 2) return 0;
+            return Math.sqrt(valores.reduce((suma, v) => suma + (v - media) ** 2, 0) / (valores.length - 1));
+        }
+
+        // Aproximación numérica de la función de distribución normal estándar.
+        function probabilidadNormalEstandar(z) {
+            const signo = z < 0 ? -1 : 1;
+            const x = Math.abs(z) / Math.sqrt(2);
+            const t = 1 / (1 + 0.3275911 * x);
+            const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
+            const a4 = -1.453152027, a5 = 1.061405429;
+            const erf = 1 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*Math.exp(-x*x);
+            return Math.min(1, Math.max(0, 0.5 * (1 + signo * erf)));
         }
 
         function cambiarModulo(mod) {
@@ -284,6 +306,20 @@
             } else if (mod === "graficas") {
                 contenedor.innerHTML = `
                     <p class="text-xs text-purple-300">Construcción de tablas de frecuencias, histogramas y diagramas de dispersión.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <input type="text" id="datosGrafica" value="5.2, 5.4, 5.3, 5.5, 5.1" placeholder="Datos separados por comas" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+                        <select id="tipoGrafica" class="bg-purple-950/80 border border-purple-700/60 text-purple-200 text-xs rounded-xl px-3 py-2">
+                            <option value="line">Gráfica de líneas</option>
+                            <option value="bar">Histograma / frecuencias</option>
+                            <option value="scatter">Diagrama de dispersión (X/Y)</option>
+                        </select>
+                        <button onclick="renderizarGrafica()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2 rounded-xl text-xs">Generar gráfica y tabla</button>
+                    </div>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input type="text" id="datosGraficaX" value="1, 2, 3, 4, 5" placeholder="Valores X para dispersión" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+                        <input type="text" id="datosGraficaY" value="2, 4, 5, 4, 6" placeholder="Valores Y para dispersión" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+                    </div>
+                    <div id="tablaFrecuencias" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-purple-200 overflow-x-auto"></div>
                     <div class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 relative h-72 w-full flex justify-center items-center">
                         <canvas id="miGraficaCanvas"></canvas>
                     </div>
@@ -300,11 +336,18 @@
                     <button onclick="calcularProbabilidadZ()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">Calcular Puntaje Z</button>
                     <div id="resProb" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs">
                         <p><strong>Resultado Puntaje Z:</strong> <span id="valZ" class="font-mono font-bold text-purple-200">1.0000</span></p>
+                        <p><strong>Probabilidad acumulada P(X ≤ x):</strong> <span id="valProbAcum" class="font-mono font-bold text-purple-200">0.8413</span></p>
                     </div>
                 `;
             } else if (mod === "variables") {
                 contenedor.innerHTML = `
                     <p class="text-xs text-purple-300">Calcular e interpretar correlación y regresión lineal simple, con 10 ejercicios interactivos.</p>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                        <input type="text" id="datosX" value="1, 2, 3, 4, 5" placeholder="Valores X separados por comas" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+                        <input type="text" id="datosY" value="2, 4, 5, 4, 6" placeholder="Valores Y separados por comas" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+                    </div>
+                    <button onclick="calcularRelacionVariables()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">Calcular correlación y regresión</button>
+                    <div id="resultadoVariables" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-purple-200 space-y-1">Ingrese pares de valores X e Y y calcule los resultados.</div>
                     <div class="flex gap-1 overflow-x-auto pb-2 text-xs">
                         ${[...Array(10)].map((_, i) => `<button onclick="cargarEj(${i})" class="ej-btn px-2.5 py-1 bg-purple-950 text-purple-300 rounded-lg border border-purple-700/50 whitespace-nowrap">Ej ${i+1}</button>`).join('')}
                     </div>
@@ -324,29 +367,37 @@
         }
 
         function calcularEstadisticaDescriptiva() {
-            const valores = parsear(document.getElementById("inputEstadistica").value);
-            if (valores.length === 0) return;
+            const campo = document.getElementById("inputEstadistica");
+            const valores = parsear(campo.value);
+            if (valores.length === 0) { mostrarError("Ingrese datos numéricos válidos separados por comas."); return; }
             const n = valores.length;
-            const media = valores.reduce((a, b) => a + b, 0) / n;
+            const media = calcularMedia(valores);
             const ordenados = [...valores].sort((a, b) => a - b);
             const mediana = n % 2 === 0 ? (ordenados[n / 2 - 1] + ordenados[n / 2]) / 2 : ordenados[Math.floor(n / 2)];
             const rango = ordenados[n - 1] - ordenados[0];
-            const desv = n > 1 ? Math.sqrt(valores.reduce((acc, v) => acc + Math.pow(v - media, 2), 0) / (n - 1)) : 0;
-
+            const desv = calcularDesviacionMuestral(valores, media);
+            const frecuencias = new Map();
+            valores.forEach(v => frecuencias.set(v, (frecuencias.get(v) || 0) + 1));
+            const maxFrecuencia = Math.max(...frecuencias.values());
+            const modas = [...frecuencias.entries()].filter(([v, f]) => f === maxFrecuencia && f > 1).map(([v]) => v);
+            const textoModa = modas.length === 0 ? "Sin moda" : modas.sort((a,b) => a-b).join(", ");
             document.getElementById("stMedia").textContent = media.toFixed(4);
             document.getElementById("stMediana").textContent = mediana.toFixed(4);
-            document.getElementById("stModa").textContent = "Sin moda";
+            document.getElementById("stModa").textContent = textoModa;
             document.getElementById("stRango").textContent = rango.toFixed(4);
             document.getElementById("stDesv").textContent = desv.toFixed(4);
+            const interpretacion = document.querySelector("#resEstContainer + div strong");
+            if (interpretacion && interpretacion.parentElement) {
+                interpretacion.parentElement.innerHTML = `<strong>Interpretación:</strong> La media es ${media.toFixed(4)} y la desviación estándar muestral es ${desv.toFixed(4)}. El rango de los datos es ${rango.toFixed(4)}.`;
+            }
         }
 
         function procesarDatosExperimentales() {
             const valores = parsear(document.getElementById("inputDatosExp").value);
-            if (valores.length === 0) return;
-            const n = valores.length;
-            const media = valores.reduce((a, b) => a + b, 0) / n;
-            const desv = Math.sqrt(valores.reduce((a, b) => a + Math.pow(b - media, 2), 0) / (n > 1 ? n - 1 : 1));
-            const inc = desv / Math.sqrt(n);
+            if (valores.length === 0) { mostrarError("Ingrese mediciones numéricas válidas separadas por comas."); return; }
+            const media = calcularMedia(valores);
+            const desv = calcularDesviacionMuestral(valores, media);
+            const inc = valores.length > 0 ? desv / Math.sqrt(valores.length) : 0;
             document.getElementById("expProm").textContent = media.toFixed(4);
             document.getElementById("expInc").textContent = inc.toFixed(4);
             document.getElementById("expReporte").textContent = `${media.toFixed(3)} ± ${inc.toFixed(3)}`;
@@ -354,18 +405,20 @@
 
         function procesarDatosExpDashboard() {
             const valores = parsear(document.getElementById("inputExpDashboard").value);
-            if (valores.length === 0) return;
-            const media = valores.reduce((a, b) => a + b, 0) / valores.length;
-            const inc = Math.sqrt(valores.reduce((a, b) => a + Math.pow(b - media, 2), 0) / (valores.length > 1 ? valores.length - 1 : 1)) / Math.sqrt(valores.length);
+            if (valores.length === 0) { mostrarError("Ingrese mediciones numéricas válidas separadas por comas."); return; }
+            const media = calcularMedia(valores);
+            const desv = calcularDesviacionMuestral(valores, media);
+            const errorEstandar = desv / Math.sqrt(valores.length);
             document.getElementById("promExpDash").textContent = media.toFixed(3);
-            document.getElementById("incExpDash").textContent = inc.toFixed(4);
+            document.getElementById("incExpDash").textContent = errorEstandar.toFixed(4);
         }
 
         function calcularDashZ() {
-            const x = parseFloat(document.getElementById("dashX").value);
-            const mu = parseFloat(document.getElementById("dashMu").value);
-            const sigma = parseFloat(document.getElementById("dashSigma").value);
-            if (sigma <= 0) return;
+            const x = Number(document.getElementById("dashX").value);
+            const mu = Number(document.getElementById("dashMu").value);
+            const sigma = Number(document.getElementById("dashSigma").value);
+            if (![x, mu, sigma].every(Number.isFinite) || document.getElementById("dashX").value === "" || document.getElementById("dashMu").value === "" || document.getElementById("dashSigma").value === "") { mostrarError("Complete todos los campos con valores numéricos válidos."); return; }
+            if (sigma <= 0) { mostrarError("La desviación estándar debe ser mayor que cero."); return; }
             document.getElementById("valDashZ").textContent = ((x - mu) / sigma).toFixed(4);
         }
 
@@ -373,26 +426,61 @@
         function renderizarGrafica() {
             const canvas = document.getElementById("miGraficaCanvas");
             if (!canvas) return;
-            if (miGrafica) {
-                miGrafica.destroy();
-                miGrafica = null;
+            const input = document.getElementById("datosGrafica");
+            const valores = parsear(input ? input.value : "");
+            if (valores.length === 0) { mostrarError("Ingrese datos numéricos válidos para generar la gráfica."); return; }
+            if (miGrafica) { miGrafica.destroy(); miGrafica = null; }
+            const tipo = document.getElementById("tipoGrafica")?.value || "line";
+            const valoresX = parsear(document.getElementById("datosGraficaX")?.value || "");
+            const valoresY = parsear(document.getElementById("datosGraficaY")?.value || "");
+            if (tipo === "scatter" && (valoresX.length < 2 || valoresX.length !== valoresY.length)) { mostrarError("Para el diagrama de dispersión, ingrese al menos dos pares X/Y y la misma cantidad de valores en ambos campos."); return; }
+            const frecuencias = new Map();
+            valores.forEach(v => frecuencias.set(v, (frecuencias.get(v) || 0) + 1));
+            const unicos = [...frecuencias.keys()].sort((a,b) => a-b);
+            const tabla = document.getElementById("tablaFrecuencias");
+            if (tabla) {
+                tabla.innerHTML = `<table class="w-full text-left"><thead><tr><th class="p-1">Valor</th><th class="p-1">Frecuencia</th><th class="p-1">Frecuencia relativa</th></tr></thead><tbody>${unicos.map(v => `<tr><td class="p-1">${v}</td><td class="p-1">${frecuencias.get(v)}</td><td class="p-1">${(frecuencias.get(v)/valores.length).toFixed(4)}</td></tr>`).join("")}</tbody></table>`;
             }
+            const esBarras = tipo === "bar";
+            const esDispersión = tipo === "scatter";
+            const datos = esDispersión ? valoresX.map((v, i) => ({ x: v, y: valoresY[i] })) : (esBarras ? unicos.map(v => frecuencias.get(v)) : valores);
             miGrafica = new Chart(canvas.getContext("2d"), {
-                type: 'line',
+                type: esDispersión ? "scatter" : (esBarras ? "bar" : "line"),
                 data: {
-                    labels: ['Med 1', 'Med 2', 'Med 3', 'Med 4', 'Med 5'],
-                    datasets: [{ label: 'Comportamiento Experimental', data: [5.2, 5.4, 5.3, 5.5, 5.1], borderColor: '#a855f7', backgroundColor: 'rgba(168, 85, 247, 0.2)', fill: true, tension: 0.3 }]
+                    labels: esDispersión || esBarras ? undefined : valores.map((_, i) => `Medición ${i+1}`),
+                    datasets: [{ label: esDispersión ? "Pares de datos X/Y" : (esBarras ? "Frecuencia por valor" : "Mediciones experimentales"), data: datos, borderColor: "#a855f7", backgroundColor: "rgba(168, 85, 247, 0.3)", fill: !esBarras && !esDispersión, tension: 0.3 }]
                 },
-                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { labels: { color: '#f3e8ff' } } } }
+                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: esDispersión ? "linear" : "category", title: { display: esDispersión, text: "X", color: "#f3e8ff" }, ticks: { color: "#f3e8ff" } }, y: { beginAtZero: !esDispersión, title: { display: esDispersión, text: "Y", color: "#f3e8ff" }, ticks: { color: "#f3e8ff" } } }, plugins: { legend: { labels: { color: "#f3e8ff" } } } }
             });
         }
 
         function calcularProbabilidadZ() {
-            const x = parseFloat(document.getElementById("probX").value);
-            const mu = parseFloat(document.getElementById("probMu").value);
-            const sigma = parseFloat(document.getElementById("probSigma").value);
-            if (sigma <= 0) return;
-            document.getElementById("valZ").textContent = ((x - mu) / sigma).toFixed(4);
+            const campoX = document.getElementById("probX").value;
+            const campoMu = document.getElementById("probMu").value;
+            const campoSigma = document.getElementById("probSigma").value;
+            const x = Number(campoX), mu = Number(campoMu), sigma = Number(campoSigma);
+            if (campoX === "" || campoMu === "" || campoSigma === "" || ![x,mu,sigma].every(Number.isFinite)) { mostrarError("Complete todos los campos con valores numéricos válidos."); return; }
+            if (sigma <= 0) { mostrarError("La desviación estándar debe ser mayor que cero."); return; }
+            const z = (x - mu) / sigma;
+            document.getElementById("valZ").textContent = z.toFixed(4);
+            const prob = document.getElementById("valProbAcum");
+            if (prob) prob.textContent = probabilidadNormalEstandar(z).toFixed(4);
+        }
+
+        function calcularRelacionVariables() {
+            const x = parsear(document.getElementById("datosX").value);
+            const y = parsear(document.getElementById("datosY").value);
+            const salida = document.getElementById("resultadoVariables");
+            if (x.length < 2 || y.length < 2 || x.length !== y.length) { salida.textContent = "Ingrese al menos dos pares de datos numéricos válidos. X e Y deben tener la misma cantidad de valores."; return; }
+            const n = x.length, mx = calcularMedia(x), my = calcularMedia(y);
+            const sxx = x.reduce((s,v) => s + (v-mx)**2, 0);
+            const syy = y.reduce((s,v) => s + (v-my)**2, 0);
+            const sxy = x.reduce((s,v,i) => s + (v-mx)*(y[i]-my), 0);
+            if (sxx === 0 || syy === 0) { salida.textContent = "No se puede calcular la correlación: X e Y deben tener variación."; return; }
+            const r = sxy / Math.sqrt(sxx*syy), b = sxy/sxx, a = my-b*mx;
+            let interpretacion = Math.abs(r) >= 0.8 ? "fuerte" : Math.abs(r) >= 0.5 ? "moderada" : "débil";
+            const direccion = r > 0 ? "positiva" : r < 0 ? "negativa" : "nula";
+            salida.innerHTML = `<p><strong>Coeficiente de correlación (r):</strong> ${r.toFixed(4)}</p><p><strong>Regresión lineal:</strong> ŷ = ${a.toFixed(4)} ${b < 0 ? "−" : "+"} ${Math.abs(b).toFixed(4)}x</p><p><strong>Interpretación:</strong> La relación lineal es ${interpretacion} y ${direccion}.</p><p><strong>Procedimiento:</strong> Se calcularon las medias de X e Y, la covariación entre ambas variables y la pendiente b = Sxy/Sxx; luego se obtuvo a = media(Y) − b·media(X).</p>`;
         }
 
         const ejercicios = [
@@ -402,7 +490,7 @@
             { titulo: "Potencia Eléctrica", enunciado: "Determina la potencia disipada por un resistor de 50 Ω recorrido por 2 A.", formula: "P = I² * R", respuesta: 200 },
             { titulo: "Capacitancia", enunciado: "Calcula la carga en un condensador de 10 µF a 100 V.", formula: "Q = C * V", respuesta: 0.001 },
             { titulo: "Campo Magnético (Solenoide)", enunciado: "Halla B en un solenoide de 500 espiras/m con 2 A.", formula: "B = µ₀ * n * I", respuesta: 0.001257 },
-            { titulo: "Fuerza Magnética", enunciado: "Calcula la fuerza sobre una carga de 3 C a 400 m/s en 0.5 T.", formula: "F = q * v * B * sin(θ)", respuesta: 600 },
+            { titulo: "Fuerza Magnética", enunciado: "Calcula la fuerza magnética sobre una carga de 3 C que se mueve a 400 m/s perpendicularmente a un campo de 0.5 T (θ = 90°).", formula: "F = |q| * v * B * sin(θ)", respuesta: 600 },
             { titulo: "Ley de Faraday", enunciado: "Halla la fem inducida si el flujo cambia de 0.2 Wb a 0.8 Wb en 0.1 s.", formula: "ε = - ΔΦ / Δt", respuesta: 6 },
             { titulo: "Reactancia Inductiva", enunciado: "Calcula X_L de una bobina de 0.1 H a 60 Hz.", formula: "X_L = 2 * π * f * L", respuesta: 37.699 },
             { titulo: "Impedancia en AC", enunciado: "Halla Z en serie RL con R = 30 Ω y X_L = 40 Ω.", formula: "Z = √(R² + X_L²)", respuesta: 50 }
@@ -429,7 +517,7 @@
                 return;
             }
             if (Math.abs(val - ej.respuesta) <= Math.max(0.01, Math.abs(ej.respuesta * 0.02))) {
-                feedbackElem.textContent = "¡Correcto!";
+                feedbackElem.textContent = `¡Correcto! Respuesta esperada: ${ej.respuesta}. Revise la fórmula y sustituya los datos del enunciado para comprobar el procedimiento.`;
                 feedbackElem.className = "text-green-400 font-bold";
             } else {
                 feedbackElem.textContent = `Incorrecto. Esperado: ${ej.respuesta}`;
