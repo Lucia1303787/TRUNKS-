@@ -1,536 +1,1176 @@
-<!DOCTYPE html>
-<html lang="es" class="dark">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Trunks - FISICA II</title>
 
-    <!-- Tailwind CSS -->
-    <script src="https://cdn.tailwindcss.com"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+"use strict";
 
-    <script>
-        tailwind.config = {
-            darkMode: 'class',
-            theme: {
-                extend: {
-                    colors: {
-                        trunksBg: '#090314',
-                        trunksCard: 'rgba(20, 10, 40, 0.85)',
-                        trunksBorder: 'rgba(168, 85, 247, 0.3)',
-                        trunksPurple: '#a855f7',
-                        trunksDarkPurple: '#6b21a8'
-                    }
-                }
-            }
-        }
-    </script>
+/* =========================================================
+   1. UTILIDADES Y VALIDACIONES GENERALES
+   ========================================================= */
 
-    <style>
-        body {
-            background-color: #090314;
-            background-image: 
-                radial-gradient(circle at 10% 20%, rgba(107, 33, 168, 0.15) 0%, transparent 40%),
-                radial-gradient(circle at 90% 80%, rgba(88, 28, 135, 0.15) 0%, transparent 40%);
-            color: #f3e8ff;
-            font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
-        }
-        .glass-panel {
-            background: rgba(22, 11, 45, 0.75);
-            backdrop-filter: blur(16px);
-            border: 1px solid rgba(168, 85, 247, 0.25);
-            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
-        }
-        .glass-card {
-            background: rgba(30, 15, 60, 0.5);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(168, 85, 247, 0.15);
-        }
-        ::-webkit-scrollbar {
-            width: 8px;
-            height: 8px;
-        }
-        ::-webkit-scrollbar-track {
-            background: #090314;
-        }
-        ::-webkit-scrollbar-thumb {
-            background: #7e22ce;
-            border-radius: 4px;
-        }
-    </style>
-</head>
+function parsear(str) {
+    if (typeof str !== "string" || !str.trim()) return [];
 
-<body class="min-h-screen flex flex-col justify-between selection:bg-purple-600 selection:text-white">
+    const partes = str.split(",").map(p => p.trim());
 
-    <!-- ENCABEZADO OFICIAL (SIN LOGO) -->
-    <header class="relative overflow-hidden bg-gradient-to-r from-purple-950 via-indigo-950 to-purple-950 border-b border-purple-500/30 py-5 px-6 shadow-2xl">
-        <div class="absolute inset-0 bg-[radial-gradient(circle_at_top,_var(--tw-gradient-stops))] from-purple-600/10 via-transparent to-transparent pointer-events-none"></div>
-        <div class="max-w-7xl mx-auto relative z-10 flex flex-col md:flex-row justify-between items-center gap-4">
-            
-            <div class="flex items-center gap-4">
-                <div>
-                    <div class="inline-flex items-center gap-2 px-3 py-0.5 rounded-full bg-purple-900/50 border border-purple-400/30 text-purple-200 text-[11px] font-semibold tracking-widest uppercase mb-1">
-                        <span>UNIVERSIDAD MARIANO GALVEZ - FISICA II</span>
-                        <span class="w-1.5 h-1.5 rounded-full bg-purple-400 animate-pulse"></span>
-                    </div>
-                    <h1 class="text-3xl md:text-4xl font-black text-transparent bg-clip-text bg-gradient-to-r from-purple-100 via-purple-300 to-indigo-300 tracking-tight">
-                        TRUNKS
-                    </h1>
+    if (partes.some(p => p === "")) return [];
+
+    const numeros = partes.map(Number);
+
+    return numeros.every(Number.isFinite) ? numeros : [];
+}
+
+function mostrarError(mensaje) {
+    alert(mensaje);
+}
+
+function obtenerNumero(id) {
+    const campo = document.getElementById(id);
+
+    if (!campo || campo.value.trim() === "") return null;
+
+    const numero = Number(campo.value);
+
+    return Number.isFinite(numero) ? numero : null;
+}
+
+function formato(numero, decimales = 4) {
+    if (!Number.isFinite(numero)) return "No definido";
+    return numero.toFixed(decimales);
+}
+
+function calcularMedia(valores) {
+    if (!Array.isArray(valores) || valores.length === 0) {
+        return NaN;
+    }
+
+    return valores.reduce((suma, valor) => suma + valor, 0)
+        / valores.length;
+}
+
+function calcularDesviacionMuestral(
+    valores,
+    media = calcularMedia(valores)
+) {
+    if (!Array.isArray(valores) || valores.length < 2) {
+        return NaN;
+    }
+
+    if (!Number.isFinite(media)) return NaN;
+
+    const sumaCuadrados = valores.reduce(
+        (suma, valor) => suma + (valor - media) ** 2,
+        0
+    );
+
+    return Math.sqrt(sumaCuadrados / (valores.length - 1));
+}
+
+function obtenerFrecuencias(valores) {
+    const frecuencias = new Map();
+
+    valores.forEach(valor => {
+        frecuencias.set(
+            valor,
+            (frecuencias.get(valor) || 0) + 1
+        );
+    });
+
+    return frecuencias;
+}
+
+/* =========================================================
+   2. DISTRIBUCIÓN NORMAL ESTÁNDAR
+   ========================================================= */
+
+function probabilidadNormalEstandar(z) {
+    if (!Number.isFinite(z)) return NaN;
+
+    // Aproximación numérica de la función de distribución normal.
+    const signo = z < 0 ? -1 : 1;
+    const x = Math.abs(z) / Math.sqrt(2);
+
+    const t = 1 / (1 + 0.3275911 * x);
+
+    const a1 = 0.254829592;
+    const a2 = -0.284496736;
+    const a3 = 1.421413741;
+    const a4 = -1.453152027;
+    const a5 = 1.061405429;
+
+    const polinomio =
+        (((((a5 * t + a4) * t) + a3) * t + a2) * t + a1);
+
+    const erf = 1 - polinomio * t * Math.exp(-x * x);
+
+    const probabilidad = 0.5 * (1 + signo * erf);
+
+    return Math.max(0, Math.min(1, probabilidad));
+}
+
+/* =========================================================
+   3. NAVEGACIÓN ENTRE MÓDULOS
+   ========================================================= */
+
+function cambiarModulo(mod) {
+    const modulos = [
+        "estadistica",
+        "datos",
+        "graficas",
+        "probabilidad",
+        "variables"
+    ];
+
+    if (!modulos.includes(mod)) return;
+
+    const selector = document.getElementById("selectorModuloRapido");
+
+    if (selector) selector.value = mod;
+
+    modulos.forEach(m => {
+        const boton = document.getElementById("nav-btn-" + m);
+
+        if (!boton) return;
+
+        const nombre = boton.querySelector("span")?.textContent || "";
+
+        if (m === mod) {
+            boton.className =
+                "w-full text-left p-3 rounded-2xl font-semibold text-xs " +
+                "transition-all bg-purple-700 text-white shadow-md " +
+                "border border-purple-400 flex items-center justify-between";
+
+            boton.innerHTML =
+                `<span>${nombre}</span>` +
+                `<span class="text-[10px] bg-purple-900 px-2 py-0.5 rounded-full">Activo</span>`;
+        } else {
+            boton.className =
+                "w-full text-left p-3 rounded-2xl font-semibold text-xs " +
+                "transition-all text-purple-300 hover:text-white " +
+                "hover:bg-purple-900/30 border border-transparent " +
+                "hover:border-purple-700/40 flex items-center justify-between";
+
+            boton.innerHTML = `<span>${nombre}</span>`;
+        }
+    });
+
+    renderizarContenidoModulo(mod);
+}
+
+function seleccionarModuloPorSelect(valor) {
+    cambiarModulo(valor);
+}
+
+/* =========================================================
+   4. CONTENIDO DINÁMICO DE LOS MÓDULOS
+   ========================================================= */
+
+function renderizarContenidoModulo(mod) {
+    const contenedor = document.getElementById("contenedorDinamicoModulo");
+
+    if (!contenedor) return;
+
+    if (mod === "estadistica") {
+        contenedor.innerHTML = `
+            <p class="text-xs text-purple-300">
+                Calcula media, mediana, moda, rango y medidas de dispersión.
+            </p>
+
+            <div class="flex flex-col sm:flex-row gap-2">
+                <input type="text" id="inputEstadistica"
+                    value="2.1, 2.3, 2.2, 2.4, 2.0"
+                    class="flex-grow bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+
+                <button onclick="calcularEstadisticaDescriptiva()"
+                    class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">
+                    Calcular
+                </button>
+            </div>
+
+            <div id="resEstContainer"
+                class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
+
+                <div class="bg-purple-900/30 p-2 rounded-lg">
+                    <span>Media</span><br>
+                    <strong id="stMedia" class="text-purple-100">2.2000</strong>
+                </div>
+
+                <div class="bg-purple-900/30 p-2 rounded-lg">
+                    <span>Mediana</span><br>
+                    <strong id="stMediana" class="text-purple-100">2.2000</strong>
+                </div>
+
+                <div class="bg-purple-900/30 p-2 rounded-lg">
+                    <span>Moda</span><br>
+                    <strong id="stModa" class="text-purple-100">Sin moda</strong>
+                </div>
+
+                <div class="bg-purple-900/30 p-2 rounded-lg">
+                    <span>Rango</span><br>
+                    <strong id="stRango" class="text-purple-100">0.4000</strong>
+                </div>
+
+                <div class="bg-purple-900/30 p-2 rounded-lg col-span-2 sm:col-span-1">
+                    <span>Desv. muestral</span><br>
+                    <strong id="stDesv" class="text-purple-100">0.1581</strong>
                 </div>
             </div>
 
-            <!-- CREDENCIALES DE INTEGRANTES -->
-            <div class="glass-card rounded-2xl p-3 border border-purple-500/20 text-left min-w-[280px]">
-                <p class="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-1">Integrantes del Proyecto:</p>
-                <div class="space-y-1 text-xs text-purple-100 font-medium">
-                    <div class="flex justify-between items-center gap-3">
-                        <span class="text-purple-200 font-semibold">Helen Mishell Buc Lorenzo</span>
-                        <span class="font-mono bg-purple-950/80 text-purple-300 px-1.5 py-0.5 rounded border border-purple-600/30 text-[10px]">2990-25-27744</span>
-                    </div>
-                    <div class="flex justify-between items-center gap-3">
-                        <span class="text-purple-200 font-semibold">Ana Lucia Xalin Lara</span>
-                        <span class="font-mono bg-purple-950/80 text-purple-300 px-1.5 py-0.5 rounded border border-purple-600/30 text-[10px]">2990-23-24910</span>
-                    </div>
-                </div>
+            <div id="interpretacionEstadistica"
+                class="bg-purple-900/20 p-3 rounded-xl border border-purple-700/30 text-xs text-purple-200">
+                Introduce los datos y pulsa Calcular para obtener la interpretación.
+            </div>
+        `;
+
+    } else if (mod === "datos") {
+        contenedor.innerHTML = `
+            <p class="text-xs text-purple-300">
+                Procesa series de mediciones físicas y calcula su incertidumbre estándar.
+            </p>
+
+            <div class="flex gap-2">
+                <input type="text" id="inputDatosExp"
+                    value="5.2, 5.4, 5.3, 5.5, 5.1"
+                    class="flex-grow bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+
+                <button onclick="procesarDatosExperimentales()"
+                    class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">
+                    Procesar
+                </button>
             </div>
 
-        </div>
-    </header>
+            <div id="resDatosExp"
+                class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs space-y-1">
 
-    <!-- CONTENEDOR PRINCIPAL -->
-    <main class="max-w-7xl w-full mx-auto p-4 md:p-6 flex-grow">
-        <div class="grid grid-cols-1 lg:grid-cols-4 gap-6">
+                <p><strong>Valor promedio:</strong>
+                    <span id="expProm" class="font-mono text-purple-200">5.3000</span>
+                </p>
 
-            <!-- COLUMNA IZQUIERDA Y CENTRAL -->
-            <div class="lg:col-span-3 space-y-6">
+                <p><strong>Desviación estándar muestral:</strong>
+                    <span id="expDesv" class="font-mono text-purple-200">0.1581</span>
+                </p>
 
-                <!-- MÓDULO PRINCIPAL / RESOLUCIÓN DINÁMICA -->
-                <section class="glass-panel rounded-3xl p-6 shadow-2xl relative overflow-hidden space-y-4">
-                    <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-3 border-b border-purple-900/60 pb-3">
-                        <h2 class="text-lg font-extrabold text-purple-200 flex items-center gap-2">
-                            <span>⚡ Panel de Resolución y Análisis</span>
-                        </h2>
-                        <select id="selectorModuloRapido" onchange="seleccionarModuloPorSelect(this.value)" class="bg-purple-950/80 border border-purple-700/60 text-purple-200 text-xs rounded-xl px-3 py-2 font-semibold focus:outline-none focus:border-purple-400">
-                            <option value="estadistica">1. Estadística Descriptiva</option>
-                            <option value="datos">2. Datos Experimentales</option>
-                            <option value="graficas">3. Tablas de Frecuencia y Gráficas</option>
-                            <option value="probabilidad">4. Probabilidad & Distribución Normal</option>
-                            <option value="variables" selected>5. Relación de Variables & Ejercicios</option>
-                        </select>
-                    </div>
+                <p><strong>Error estándar:</strong>
+                    <span id="expInc" class="font-mono text-purple-200">0.0707</span>
+                </p>
 
-                    <div id="contenedorDinamicoModulo" class="space-y-4 pt-2">
-                        <!-- Se carga dinámicamente -->
-                    </div>
-                </section>
+                <p><strong>Reporte promedio ± error estándar:</strong>
+                    <span id="expReporte" class="text-white font-bold">5.300 ± 0.071</span>
+                </p>
+            </div>
+        `;
 
-                <!-- SECCIÓN INFERIOR -->
-                <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    <!-- REGISTRO EXPERIMENTAL -->
-                    <section class="glass-panel rounded-3xl p-5 shadow-xl space-y-3">
-                        <h3 class="text-sm font-bold text-purple-200 uppercase tracking-wider">Registro Experimental de Datos</h3>
-                        <p class="text-xs text-purple-300/80">Procesa series de mediciones físicas y maneja unidades.</p>
-                        <div class="flex gap-2 pt-1">
-                            <input type="text" id="inputExpDashboard" value="2.1, 2.3, 2.2, 2.4, 2.0" class="w-full bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-xs text-white font-mono">
-                            <button onclick="procesarDatosExpDashboard()" class="bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold px-4 py-2 rounded-xl transition-all">Procesar</button>
-                        </div>
-                        <div id="resExpDashboard" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs space-y-1">
-                            <p><strong>Promedio (A):</strong> <span id="promExpDash" class="text-purple-300 font-mono">2.200</span></p>
-                            <p><strong>Error estándar de la media:</strong> <span id="incExpDash" class="text-purple-300 font-mono">0.1581</span></p>
-                        </div>
-                    </section>
+    } else if (mod === "graficas") {
+        contenedor.innerHTML = `
+            <p class="text-xs text-purple-300">
+                Construcción de tablas de frecuencias, histogramas y diagramas de dispersión.
+            </p>
 
-                    <!-- DISTRIBUCIÓN NORMAL -->
-                    <section class="glass-panel rounded-3xl p-5 shadow-xl space-y-3">
-                        <h3 class="text-sm font-bold text-purple-200 uppercase tracking-wider">Probabilidad & Distribución Normal</h3>
-                        <p class="text-xs text-purple-300/80">Cálculo del puntaje Z para variables físicas.</p>
-                        <div class="grid grid-cols-3 gap-2">
-                            <input type="number" id="dashX" value="2.3" placeholder="X" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-2 py-1.5 text-xs text-white text-center font-mono">
-                            <input type="number" id="dashMu" value="2.2" placeholder="Media" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-2 py-1.5 text-xs text-white text-center font-mono">
-                            <input type="number" id="dashSigma" value="0.158" placeholder="Desv." class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-2 py-1.5 text-xs text-white text-center font-mono">
-                        </div>
-                        <button onclick="calcularDashZ()" class="w-full bg-purple-600 hover:bg-purple-500 text-white text-xs font-bold py-2 rounded-xl transition-all">Calcular Puntaje Z</button>
-                        <div id="resDashZ" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-center font-mono text-purple-200">
-                            Z = <span id="valDashZ">0.6329</span>
-                        </div>
-                    </section>
-                </div>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                <input type="text" id="datosGrafica"
+                    value="5.2, 5.4, 5.3, 5.5, 5.1"
+                    placeholder="Datos separados por comas"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+
+                <select id="tipoGrafica"
+                    class="bg-purple-950/80 border border-purple-700/60 text-purple-200 text-xs rounded-xl px-3 py-2">
+                    <option value="line">Gráfica de líneas</option>
+                    <option value="bar">Frecuencias por valor</option>
+                    <option value="histogram">Histograma por intervalos</option>
+                    <option value="scatter">Diagrama de dispersión X/Y</option>
+                </select>
+
+                <button onclick="renderizarGrafica()"
+                    class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2 rounded-xl text-xs">
+                    Generar gráfica y tabla
+                </button>
             </div>
 
-            <!-- COLUMNA DERECHA: MENÚ LATERAL -->
-            <aside class="space-y-3">
-                <div class="glass-panel rounded-3xl p-4 shadow-xl space-y-2.5">
-                    <h3 class="text-xs font-bold text-purple-400 uppercase tracking-widest px-2 mb-3">Módulos del Sistema</h3>
-                    
-                    <button onclick="cambiarModulo('estadistica')" id="nav-btn-estadistica" class="w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all bg-purple-700 text-white shadow-md border border-purple-400 flex items-center justify-between">
-                        <span>1. Estadística Descriptiva</span>
-                        <span class="text-[10px] bg-purple-900 px-2 py-0.5 rounded-full">Activo</span>
-                    </button>
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="text" id="datosGraficaX"
+                    value="1, 2, 3, 4, 5"
+                    placeholder="Valores X para dispersión"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
 
-                    <button onclick="cambiarModulo('datos')" id="nav-btn-datos" class="w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all text-purple-300 hover:text-white hover:bg-purple-900/30 border border-transparent hover:border-purple-700/40 flex items-center justify-between">
-                        <span>2. Datos Experimentales</span>
-                    </button>
+                <input type="text" id="datosGraficaY"
+                    value="2, 4, 5, 4, 6"
+                    placeholder="Valores Y para dispersión"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+            </div>
 
-                    <button onclick="cambiarModulo('graficas')" id="nav-btn-graficas" class="w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all text-purple-300 hover:text-white hover:bg-purple-900/30 border border-transparent hover:border-purple-700/40 flex items-center justify-between">
-                        <span>3. Tablas de Frecuencia y Gráficas</span>
-                    </button>
+            <div id="tablaFrecuencias"
+                class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-purple-200 overflow-x-auto"></div>
 
-                    <button onclick="cambiarModulo('probabilidad')" id="nav-btn-probabilidad" class="w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all text-purple-300 hover:text-white hover:bg-purple-900/30 border border-transparent hover:border-purple-700/40 flex items-center justify-between">
-                        <span>4. Probabilidad & Distribución</span>
-                    </button>
+            <div class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 relative h-72 w-full">
+                <canvas id="miGraficaCanvas"></canvas>
+            </div>
+        `;
 
-                    <button onclick="cambiarModulo('variables')" id="nav-btn-variables" class="w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all text-purple-300 hover:text-white hover:bg-purple-900/30 border border-transparent hover:border-purple-700/40 flex items-center justify-between">
-                        <span>5. Relación de Variables & Ejercicios</span>
+        renderizarGrafica();
+
+    } else if (mod === "probabilidad") {
+        contenedor.innerHTML = `
+            <p class="text-xs text-purple-300">
+                Calcula el puntaje Z y la probabilidad acumulada de una distribución normal.
+            </p>
+
+            <div class="grid grid-cols-3 gap-2 text-xs">
+                <input type="number" step="any" id="probX" value="2.3"
+                    placeholder="X"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl p-2 text-white text-center font-mono">
+
+                <input type="number" step="any" id="probMu" value="2.2"
+                    placeholder="Media"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl p-2 text-white text-center font-mono">
+
+                <input type="number" step="any" id="probSigma" value="0.1"
+                    placeholder="Desv."
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl p-2 text-white text-center font-mono">
+            </div>
+
+            <button onclick="calcularProbabilidadZ()"
+                class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">
+                Calcular puntaje Z
+            </button>
+
+            <div id="resProb"
+                class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs space-y-1">
+
+                <p><strong>Puntaje Z:</strong>
+                    <span id="valZ" class="font-mono font-bold text-purple-200">1.0000</span>
+                </p>
+
+                <p><strong>Probabilidad acumulada P(X ≤ x):</strong>
+                    <span id="valProbAcum" class="font-mono font-bold text-purple-200">0.8413</span>
+                </p>
+
+                <p><strong>Porcentaje acumulado:</strong>
+                    <span id="valPorcentaje" class="font-mono text-purple-200">84.13%</span>
+                </p>
+            </div>
+        `;
+
+    } else if (mod === "variables") {
+        contenedor.innerHTML = `
+            <p class="text-xs text-purple-300">
+                Calcula e interpreta correlación de Pearson y regresión lineal simple.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                <input type="text" id="datosX" value="1, 2, 3, 4, 5"
+                    placeholder="Valores X separados por comas"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+
+                <input type="text" id="datosY" value="2, 4, 5, 4, 6"
+                    placeholder="Valores Y separados por comas"
+                    class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
+            </div>
+
+            <button onclick="calcularRelacionVariables()"
+                class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">
+                Calcular correlación y regresión
+            </button>
+
+            <div id="resultadoVariables"
+                class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-purple-200 space-y-1">
+                Introduce pares de valores X e Y y calcula los resultados.
+            </div>
+
+            <div class="flex gap-1 overflow-x-auto pb-2 text-xs">
+                ${Array.from({length: 10}, (_, i) =>
+                    `<button onclick="cargarEj(${i})"
+                        class="ej-btn px-2.5 py-1 bg-purple-950 text-purple-300 rounded-lg border border-purple-700/50 whitespace-nowrap">
+                        Ej ${i + 1}
+                    </button>`
+                ).join("")}
+            </div>
+
+            <div class="bg-purple-950/80 p-4 rounded-xl border border-purple-800/60 text-xs space-y-2">
+                <p id="ejTitulo" class="font-bold text-purple-200"></p>
+                <p id="ejEnunciado" class="text-purple-100"></p>
+                <p><strong>Fórmula:</strong>
+                    <span id="ejFormula" class="font-mono text-purple-300"></span>
+                </p>
+
+                <div class="flex flex-wrap gap-2 pt-1">
+                    <input type="number" step="any" id="ejRespUser"
+                        placeholder="Respuesta numérica"
+                        class="bg-purple-950 border border-purple-700/60 rounded-xl px-3 py-1.5 text-xs text-white w-48">
+
+                    <button onclick="verificarEj()"
+                        class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded-xl text-xs font-semibold">
+                        Validar
                     </button>
                 </div>
 
-                <!-- HERRAMIENTAS IA -->
-                <div class="glass-panel rounded-3xl p-4 shadow-xl space-y-2">
-                    <h3 class="text-xs font-bold text-purple-400 uppercase tracking-widest px-2 mb-2">Herramientas IA</h3>
-                    <button onclick="activarDictadoVoz()" class="w-full bg-purple-900/30 hover:bg-purple-800/50 text-purple-200 border border-purple-500/30 rounded-xl p-2.5 text-xs font-semibold text-left flex items-center gap-2">
-                        <span>🎤</span> Dictado por Voz
-                    </button>
-                    <label class="w-full bg-purple-900/30 hover:bg-purple-800/50 text-purple-200 border border-purple-500/30 rounded-xl p-2.5 text-xs font-semibold flex items-center gap-2 cursor-pointer">
-                        <span>📷</span> Subir / Tomar Foto
-                        <input type="file" accept="image/*" capture="environment" onchange="procesarFoto(event)" class="hidden">
-                    </label>
-                </div>
-            </aside>
-        </div>
-    </main>
+                <p id="ejFeedback" class="font-bold"></p>
+            </div>
+        `;
 
-    <!-- PIE DE PÁGINA -->
-    <footer class="bg-purple-950 border-t border-purple-900/60 py-4 px-4 text-center text-xs text-purple-400">
-        Trunks &bull; FISICA II &bull; Universidad Mariano Gálvez &bull; 2026
-    </footer>
+        cargarEj(0);
+    }
+}
 
-    <!-- SCRIPT DE FUNCIONALIDAD -->
-    <script>
-        "use strict";
+/* =========================================================
+   5. ESTADÍSTICA DESCRIPTIVA
+   ========================================================= */
 
-        function parsear(str) {
-            if (typeof str !== "string" || !str.trim()) return [];
-            const partes = str.split(",").map(p => p.trim());
-            if (partes.some(p => p === "")) return [];
-            const nums = partes.map(Number);
-            return nums.every(Number.isFinite) ? nums : [];
+function calcularEstadisticaDescriptiva() {
+    const campo = document.getElementById("inputEstadistica");
+    if (!campo) return;
+
+    const valores = parsear(campo.value);
+
+    if (valores.length === 0) {
+        mostrarError("Ingrese datos numéricos válidos separados por comas.");
+        return;
+    }
+
+    const n = valores.length;
+    const media = calcularMedia(valores);
+    const ordenados = [...valores].sort((a, b) => a - b);
+
+    const mediana = n % 2 === 0
+        ? (ordenados[n / 2 - 1] + ordenados[n / 2]) / 2
+        : ordenados[Math.floor(n / 2)];
+
+    const rango = ordenados[n - 1] - ordenados[0];
+    const desv = calcularDesviacionMuestral(valores, media);
+    const frecuencias = obtenerFrecuencias(valores);
+    const maxFrecuencia = Math.max(...frecuencias.values());
+
+    const modas = [...frecuencias.entries()]
+        .filter(([valor, frecuencia]) =>
+            frecuencia === maxFrecuencia && frecuencia > 1
+        )
+        .map(([valor]) => valor)
+        .sort((a, b) => a - b);
+
+    const textoModa = modas.length === 0
+        ? "Sin moda"
+        : modas.join(", ");
+
+    document.getElementById("stMedia").textContent = formato(media);
+    document.getElementById("stMediana").textContent = formato(mediana);
+    document.getElementById("stModa").textContent = textoModa;
+    document.getElementById("stRango").textContent = formato(rango);
+
+    document.getElementById("stDesv").textContent =
+        Number.isFinite(desv) ? formato(desv) : "No disponible (n < 2)";
+
+    const interpretacion = document.getElementById("interpretacionEstadistica");
+
+    if (interpretacion) {
+        interpretacion.textContent =
+            `Se analizaron ${n} mediciones. La media es ${formato(media)}; ` +
+            `la mediana es ${formato(mediana)} y el rango es ${formato(rango)}. ` +
+            (Number.isFinite(desv)
+                ? `La desviación estándar muestral es ${formato(desv)}.`
+                : "Se necesitan al menos dos mediciones para calcular la desviación muestral.");
+    }
+}
+
+/* =========================================================
+   6. DATOS EXPERIMENTALES E INCERTIDUMBRE
+   ========================================================= */
+
+function procesarDatosExperimentales() {
+    const campo = document.getElementById("inputDatosExp");
+    if (!campo) return;
+
+    const valores = parsear(campo.value);
+
+    if (valores.length < 2) {
+        mostrarError("Ingrese al menos dos mediciones numéricas válidas.");
+        return;
+    }
+
+    const media = calcularMedia(valores);
+    const desv = calcularDesviacionMuestral(valores, media);
+    const errorEstandar = desv / Math.sqrt(valores.length);
+
+    document.getElementById("expProm").textContent = formato(media);
+    document.getElementById("expDesv").textContent = formato(desv);
+    document.getElementById("expInc").textContent = formato(errorEstandar);
+
+    document.getElementById("expReporte").textContent =
+        `${formato(media, 3)} ± ${formato(errorEstandar, 3)}`;
+}
+
+function procesarDatosExpDashboard() {
+    const campo = document.getElementById("inputExpDashboard");
+    if (!campo) return;
+
+    const valores = parsear(campo.value);
+
+    if (valores.length < 2) {
+        mostrarError("Ingrese al menos dos mediciones numéricas válidas.");
+        return;
+    }
+
+    const media = calcularMedia(valores);
+    const desv = calcularDesviacionMuestral(valores, media);
+    const errorEstandar = desv / Math.sqrt(valores.length);
+
+    document.getElementById("promExpDash").textContent = formato(media, 3);
+    document.getElementById("incExpDash").textContent = formato(errorEstandar, 4);
+}
+
+/* =========================================================
+   7. PUNTAJE Z DEL PANEL INFERIOR
+   ========================================================= */
+
+function calcularDashZ() {
+    const x = obtenerNumero("dashX");
+    const mu = obtenerNumero("dashMu");
+    const sigma = obtenerNumero("dashSigma");
+
+    if (x === null || mu === null || sigma === null) {
+        mostrarError("Complete todos los campos con números válidos.");
+        return;
+    }
+
+    if (sigma <= 0) {
+        mostrarError("La desviación estándar debe ser mayor que cero.");
+        return;
+    }
+
+    const z = (x - mu) / sigma;
+
+    document.getElementById("valDashZ").textContent = formato(z);
+}
+
+/* =========================================================
+   8. GRÁFICAS Y TABLAS DE FRECUENCIAS
+   ========================================================= */
+
+let miGrafica = null;
+
+function calcularIntervalos(valores) {
+    const minimo = Math.min(...valores);
+    const maximo = Math.max(...valores);
+
+    if (minimo === maximo) {
+        return [{
+            inferior: minimo - 0.5,
+            superior: maximo + 0.5,
+            frecuencia: valores.length
+        }];
+    }
+
+    // Regla de Sturges para estimar la cantidad de clases.
+    const cantidadClases = Math.max(
+        1,
+        Math.ceil(1 + 3.322 * Math.log10(valores.length))
+    );
+
+    const amplitud = (maximo - minimo) / cantidadClases;
+
+    const intervalos = Array.from({length: cantidadClases}, (_, i) => ({
+        inferior: minimo + i * amplitud,
+        superior: i === cantidadClases - 1
+            ? maximo
+            : minimo + (i + 1) * amplitud,
+        frecuencia: 0
+    }));
+
+    valores.forEach(valor => {
+        let indice = Math.floor((valor - minimo) / amplitud);
+        indice = Math.max(0, Math.min(indice, cantidadClases - 1));
+        intervalos[indice].frecuencia++;
+    });
+
+    return intervalos;
+}
+
+function renderizarGrafica() {
+    const canvas = document.getElementById("miGraficaCanvas");
+    if (!canvas) return;
+
+    if (typeof Chart === "undefined") {
+        mostrarError("No se pudo cargar Chart.js. Verifique su conexión a Internet.");
+        return;
+    }
+
+    const tipo = document.getElementById("tipoGrafica")?.value || "line";
+    const tabla = document.getElementById("tablaFrecuencias");
+
+    let datosGrafico;
+    let etiquetas;
+    let titulo;
+    let tipoChart;
+    let usarEscalaLineal = false;
+    let comenzarEnCero = true;
+
+    if (tipo === "scatter") {
+        const valoresX = parsear(
+            document.getElementById("datosGraficaX")?.value || ""
+        );
+
+        const valoresY = parsear(
+            document.getElementById("datosGraficaY")?.value || ""
+        );
+
+        if (
+            valoresX.length < 2 ||
+            valoresX.length !== valoresY.length
+        ) {
+            mostrarError(
+                "Ingrese al menos dos pares X/Y válidos. " +
+                "Ambos campos deben contener la misma cantidad de números."
+            );
+            return;
         }
 
-        function mostrarError(mensaje) {
-            alert(mensaje);
+        datosGrafico = valoresX.map((x, i) => ({
+            x,
+            y: valoresY[i]
+        }));
+
+        etiquetas = undefined;
+        titulo = "Pares de datos X/Y";
+        tipoChart = "scatter";
+        usarEscalaLineal = true;
+        comenzarEnCero = false;
+
+        if (tabla) {
+            tabla.innerHTML = `
+                <p class="font-bold mb-2">Tabla de pares X/Y</p>
+                <table class="w-full text-left">
+                    <thead>
+                        <tr>
+                            <th class="p-1">N.º</th>
+                            <th class="p-1">X</th>
+                            <th class="p-1">Y</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${valoresX.map((x, i) => `
+                            <tr>
+                                <td class="p-1">${i + 1}</td>
+                                <td class="p-1">${x}</td>
+                                <td class="p-1">${valoresY[i]}</td>
+                            </tr>
+                        `).join("")}
+                    </tbody>
+                </table>
+            `;
         }
 
-        function calcularMedia(valores) {
-            return valores.reduce((a, b) => a + b, 0) / valores.length;
+    } else {
+        const campo = document.getElementById("datosGrafica");
+        const valores = parsear(campo?.value || "");
+
+        if (valores.length === 0) {
+            mostrarError("Ingrese datos numéricos válidos para generar la gráfica.");
+            return;
         }
 
-        function calcularDesviacionMuestral(valores, media = calcularMedia(valores)) {
-            if (valores.length < 2) return 0;
-            return Math.sqrt(valores.reduce((suma, v) => suma + (v - media) ** 2, 0) / (valores.length - 1));
-        }
+        const frecuencias = obtenerFrecuencias(valores);
+        const unicos = [...frecuencias.keys()].sort((a, b) => a - b);
 
-        // Aproximación numérica de la función de distribución normal estándar.
-        function probabilidadNormalEstandar(z) {
-            const signo = z < 0 ? -1 : 1;
-            const x = Math.abs(z) / Math.sqrt(2);
-            const t = 1 / (1 + 0.3275911 * x);
-            const a1 = 0.254829592, a2 = -0.284496736, a3 = 1.421413741;
-            const a4 = -1.453152027, a5 = 1.061405429;
-            const erf = 1 - (((((a5*t + a4)*t) + a3)*t + a2)*t + a1)*t*Math.exp(-x*x);
-            return Math.min(1, Math.max(0, 0.5 * (1 + signo * erf)));
-        }
+        if (tipo === "histogram") {
+            const intervalos = calcularIntervalos(valores);
 
-        function cambiarModulo(mod) {
-            const modulos = ["estadistica", "datos", "graficas", "probabilidad", "variables"];
-            if (!modulos.includes(mod)) return;
+            etiquetas = intervalos.map(intervalo =>
+                `${formato(intervalo.inferior, 3)} – ${formato(intervalo.superior, 3)}`
+            );
 
-            const selector = document.getElementById("selectorModuloRapido");
-            if(selector) selector.value = mod;
+            datosGrafico = intervalos.map(intervalo => intervalo.frecuencia);
+            titulo = "Frecuencia por intervalo";
+            tipoChart = "bar";
 
-            modulos.forEach(m => {
-                const btn = document.getElementById("nav-btn-" + m);
-                if (btn) {
-                    if (m === mod) {
-                        btn.className = "w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all bg-purple-700 text-white shadow-md border border-purple-400 flex items-center justify-between";
-                        btn.innerHTML = `<span>${btn.querySelector('span').textContent}</span><span class="text-[10px] bg-purple-900 px-2 py-0.5 rounded-full">Activo</span>`;
-                    } else {
-                        btn.className = "w-full text-left p-3 rounded-2xl font-semibold text-xs transition-all text-purple-300 hover:text-white hover:bg-purple-900/30 border border-transparent hover:border-purple-700/40 flex items-center justify-between";
-                        btn.innerHTML = `<span>${btn.querySelector('span').textContent}</span>`;
-                    }
-                }
-            });
-
-            renderizarContenidoModulo(mod);
-        }
-
-        function seleccionarModuloPorSelect(val) {
-            cambiarModulo(val);
-        }
-
-        function renderizarContenidoModulo(mod) {
-            const contenedor = document.getElementById("contenedorDinamicoModulo");
-            if (!contenedor) return;
-
-            if (mod === "estadistica") {
-                contenedor.innerHTML = `
-                    <p class="text-xs text-purple-300">Calcula media, mediana, moda, rango y medidas de dispersión (incluye el caso de prueba: 2.1, 2.3, 2.2, 2.4, 2.0).</p>
-                    <div class="flex flex-col sm:flex-row gap-2">
-                        <input type="text" id="inputEstadistica" value="2.1, 2.3, 2.2, 2.4, 2.0" class="flex-grow bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                        <button onclick="calcularEstadisticaDescriptiva()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">Calcular</button>
-                    </div>
-                    <div id="resEstContainer" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 grid grid-cols-2 sm:grid-cols-5 gap-2 text-center text-xs">
-                        <div class="bg-purple-900/30 p-2 rounded-lg"><span>Media</span><br><strong id="stMedia" class="text-purple-100">2.2000</strong></div>
-                        <div class="bg-purple-900/30 p-2 rounded-lg"><span>Mediana</span><br><strong id="stMediana" class="text-purple-100">2.2000</strong></div>
-                        <div class="bg-purple-900/30 p-2 rounded-lg"><span>Moda</span><br><strong id="stModa" class="text-purple-100">Sin moda</strong></div>
-                        <div class="bg-purple-900/30 p-2 rounded-lg"><span>Rango</span><br><strong id="stRango" class="text-purple-100">0.4000</strong></div>
-                        <div class="bg-purple-900/30 p-2 rounded-lg col-span-2 sm:col-span-1"><span>Desv. Muestral</span><br><strong id="stDesv" class="text-purple-100">0.1581</strong></div>
-                    </div>
-                    <div class="bg-purple-900/20 p-3 rounded-xl border border-purple-700/30 text-xs text-purple-200">
-                        <strong>Interpretación solicitada (Ejemplo de prueba):</strong> La media de corriente es 2.20 A con una desviación estándar muestral de 0.158 A, lo que refleja alta estabilidad en las mediciones del circuito.
-                    </div>
-                `;
-            } else if (mod === "datos") {
-                contenedor.innerHTML = `
-                    <p class="text-xs text-purple-300">Procesa series de mediciones físicas y maneja unidades experimentales.</p>
-                    <div class="flex gap-2">
-                        <input type="text" id="inputDatosExp" value="5.2, 5.4, 5.3, 5.5, 5.1" class="flex-grow bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                        <button onclick="procesarDatosExperimentales()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">Procesar</button>
-                    </div>
-                    <div id="resDatosExp" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs space-y-1">
-                        <p><strong>Valor Promedio:</strong> <span id="expProm" class="font-mono text-purple-200">5.3000</span></p>
-                        <p><strong>Incertidumbre Estándar:</strong> <span id="expInc" class="font-mono text-purple-200">0.0707</span></p>
-                        <p><strong>Reporte Final:</strong> <span id="expReporte" class="text-white font-bold">5.300 ± 0.071</span></p>
-                    </div>
-                `;
-            } else if (mod === "graficas") {
-                contenedor.innerHTML = `
-                    <p class="text-xs text-purple-300">Construcción de tablas de frecuencias, histogramas y diagramas de dispersión.</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <input type="text" id="datosGrafica" value="5.2, 5.4, 5.3, 5.5, 5.1" placeholder="Datos separados por comas" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                        <select id="tipoGrafica" class="bg-purple-950/80 border border-purple-700/60 text-purple-200 text-xs rounded-xl px-3 py-2">
-                            <option value="line">Gráfica de líneas</option>
-                            <option value="bar">Histograma / frecuencias</option>
-                            <option value="scatter">Diagrama de dispersión (X/Y)</option>
-                        </select>
-                        <button onclick="renderizarGrafica()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-4 py-2 rounded-xl text-xs">Generar gráfica y tabla</button>
-                    </div>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <input type="text" id="datosGraficaX" value="1, 2, 3, 4, 5" placeholder="Valores X para dispersión" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                        <input type="text" id="datosGraficaY" value="2, 4, 5, 4, 6" placeholder="Valores Y para dispersión" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                    </div>
-                    <div id="tablaFrecuencias" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-purple-200 overflow-x-auto"></div>
-                    <div class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 relative h-72 w-full flex justify-center items-center">
-                        <canvas id="miGraficaCanvas"></canvas>
-                    </div>
-                `;
-                setTimeout(renderizarGrafica, 50);
-            } else if (mod === "probabilidad") {
-                contenedor.innerHTML = `
-                    <p class="text-xs text-purple-300">Resolver ejercicios básicos y aplicar la distribución normal.</p>
-                    <div class="grid grid-cols-3 gap-2 text-xs">
-                        <input type="number" id="probX" value="2.3" placeholder="X" class="bg-purple-950/70 border border-purple-700/60 rounded-xl p-2 text-white text-center font-mono">
-                        <input type="number" id="probMu" value="2.2" placeholder="Media" class="bg-purple-950/70 border border-purple-700/60 rounded-xl p-2 text-white text-center font-mono">
-                        <input type="number" id="probSigma" value="0.1" placeholder="Desv." class="bg-purple-950/70 border border-purple-700/60 rounded-xl p-2 text-white text-center font-mono">
-                    </div>
-                    <button onclick="calcularProbabilidadZ()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">Calcular Puntaje Z</button>
-                    <div id="resProb" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs">
-                        <p><strong>Resultado Puntaje Z:</strong> <span id="valZ" class="font-mono font-bold text-purple-200">1.0000</span></p>
-                        <p><strong>Probabilidad acumulada P(X ≤ x):</strong> <span id="valProbAcum" class="font-mono font-bold text-purple-200">0.8413</span></p>
-                    </div>
-                `;
-            } else if (mod === "variables") {
-                contenedor.innerHTML = `
-                    <p class="text-xs text-purple-300">Calcular e interpretar correlación y regresión lineal simple, con 10 ejercicios interactivos.</p>
-                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                        <input type="text" id="datosX" value="1, 2, 3, 4, 5" placeholder="Valores X separados por comas" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                        <input type="text" id="datosY" value="2, 4, 5, 4, 6" placeholder="Valores Y separados por comas" class="bg-purple-950/70 border border-purple-700/60 rounded-xl px-3 py-2 text-white font-mono text-xs">
-                    </div>
-                    <button onclick="calcularRelacionVariables()" class="bg-purple-600 hover:bg-purple-500 text-white font-semibold px-5 py-2 rounded-xl text-xs">Calcular correlación y regresión</button>
-                    <div id="resultadoVariables" class="bg-purple-950/80 p-3 rounded-xl border border-purple-800/60 text-xs text-purple-200 space-y-1">Ingrese pares de valores X e Y y calcule los resultados.</div>
-                    <div class="flex gap-1 overflow-x-auto pb-2 text-xs">
-                        ${[...Array(10)].map((_, i) => `<button onclick="cargarEj(${i})" class="ej-btn px-2.5 py-1 bg-purple-950 text-purple-300 rounded-lg border border-purple-700/50 whitespace-nowrap">Ej ${i+1}</button>`).join('')}
-                    </div>
-                    <div class="bg-purple-950/80 p-4 rounded-xl border border-purple-800/60 text-xs space-y-2">
-                        <p id="ejTitulo" class="font-bold text-purple-200"></p>
-                        <p id="ejEnunciado" class="text-purple-100"></p>
-                        <p><strong>Fórmula:</strong> <span id="ejFormula" class="font-mono text-purple-300"></span></p>
-                        <div class="flex gap-2 pt-1">
-                            <input type="number" step="any" id="ejRespUser" placeholder="Respuesta numérica" class="bg-purple-950 border border-purple-700/60 rounded-xl px-3 py-1.5 text-xs text-white w-48">
-                            <button onclick="verificarEj()" class="bg-purple-600 hover:bg-purple-500 text-white px-4 py-1.5 rounded-xl text-xs font-semibold">Validar</button>
-                        </div>
-                        <p id="ejFeedback" class="font-bold"></p>
-                    </div>
-                `;
-                cargarEj(0);
-            }
-        }
-
-        function calcularEstadisticaDescriptiva() {
-            const campo = document.getElementById("inputEstadistica");
-            const valores = parsear(campo.value);
-            if (valores.length === 0) { mostrarError("Ingrese datos numéricos válidos separados por comas."); return; }
-            const n = valores.length;
-            const media = calcularMedia(valores);
-            const ordenados = [...valores].sort((a, b) => a - b);
-            const mediana = n % 2 === 0 ? (ordenados[n / 2 - 1] + ordenados[n / 2]) / 2 : ordenados[Math.floor(n / 2)];
-            const rango = ordenados[n - 1] - ordenados[0];
-            const desv = calcularDesviacionMuestral(valores, media);
-            const frecuencias = new Map();
-            valores.forEach(v => frecuencias.set(v, (frecuencias.get(v) || 0) + 1));
-            const maxFrecuencia = Math.max(...frecuencias.values());
-            const modas = [...frecuencias.entries()].filter(([v, f]) => f === maxFrecuencia && f > 1).map(([v]) => v);
-            const textoModa = modas.length === 0 ? "Sin moda" : modas.sort((a,b) => a-b).join(", ");
-            document.getElementById("stMedia").textContent = media.toFixed(4);
-            document.getElementById("stMediana").textContent = mediana.toFixed(4);
-            document.getElementById("stModa").textContent = textoModa;
-            document.getElementById("stRango").textContent = rango.toFixed(4);
-            document.getElementById("stDesv").textContent = desv.toFixed(4);
-            const interpretacion = document.querySelector("#resEstContainer + div strong");
-            if (interpretacion && interpretacion.parentElement) {
-                interpretacion.parentElement.innerHTML = `<strong>Interpretación:</strong> La media es ${media.toFixed(4)} y la desviación estándar muestral es ${desv.toFixed(4)}. El rango de los datos es ${rango.toFixed(4)}.`;
-            }
-        }
-
-        function procesarDatosExperimentales() {
-            const valores = parsear(document.getElementById("inputDatosExp").value);
-            if (valores.length === 0) { mostrarError("Ingrese mediciones numéricas válidas separadas por comas."); return; }
-            const media = calcularMedia(valores);
-            const desv = calcularDesviacionMuestral(valores, media);
-            const inc = valores.length > 0 ? desv / Math.sqrt(valores.length) : 0;
-            document.getElementById("expProm").textContent = media.toFixed(4);
-            document.getElementById("expInc").textContent = inc.toFixed(4);
-            document.getElementById("expReporte").textContent = `${media.toFixed(3)} ± ${inc.toFixed(3)}`;
-        }
-
-        function procesarDatosExpDashboard() {
-            const valores = parsear(document.getElementById("inputExpDashboard").value);
-            if (valores.length === 0) { mostrarError("Ingrese mediciones numéricas válidas separadas por comas."); return; }
-            const media = calcularMedia(valores);
-            const desv = calcularDesviacionMuestral(valores, media);
-            const errorEstandar = desv / Math.sqrt(valores.length);
-            document.getElementById("promExpDash").textContent = media.toFixed(3);
-            document.getElementById("incExpDash").textContent = errorEstandar.toFixed(4);
-        }
-
-        function calcularDashZ() {
-            const x = Number(document.getElementById("dashX").value);
-            const mu = Number(document.getElementById("dashMu").value);
-            const sigma = Number(document.getElementById("dashSigma").value);
-            if (![x, mu, sigma].every(Number.isFinite) || document.getElementById("dashX").value === "" || document.getElementById("dashMu").value === "" || document.getElementById("dashSigma").value === "") { mostrarError("Complete todos los campos con valores numéricos válidos."); return; }
-            if (sigma <= 0) { mostrarError("La desviación estándar debe ser mayor que cero."); return; }
-            document.getElementById("valDashZ").textContent = ((x - mu) / sigma).toFixed(4);
-        }
-
-        let miGrafica = null;
-        function renderizarGrafica() {
-            const canvas = document.getElementById("miGraficaCanvas");
-            if (!canvas) return;
-            const input = document.getElementById("datosGrafica");
-            const valores = parsear(input ? input.value : "");
-            if (valores.length === 0) { mostrarError("Ingrese datos numéricos válidos para generar la gráfica."); return; }
-            if (miGrafica) { miGrafica.destroy(); miGrafica = null; }
-            const tipo = document.getElementById("tipoGrafica")?.value || "line";
-            const valoresX = parsear(document.getElementById("datosGraficaX")?.value || "");
-            const valoresY = parsear(document.getElementById("datosGraficaY")?.value || "");
-            if (tipo === "scatter" && (valoresX.length < 2 || valoresX.length !== valoresY.length)) { mostrarError("Para el diagrama de dispersión, ingrese al menos dos pares X/Y y la misma cantidad de valores en ambos campos."); return; }
-            const frecuencias = new Map();
-            valores.forEach(v => frecuencias.set(v, (frecuencias.get(v) || 0) + 1));
-            const unicos = [...frecuencias.keys()].sort((a,b) => a-b);
-            const tabla = document.getElementById("tablaFrecuencias");
             if (tabla) {
-                tabla.innerHTML = `<table class="w-full text-left"><thead><tr><th class="p-1">Valor</th><th class="p-1">Frecuencia</th><th class="p-1">Frecuencia relativa</th></tr></thead><tbody>${unicos.map(v => `<tr><td class="p-1">${v}</td><td class="p-1">${frecuencias.get(v)}</td><td class="p-1">${(frecuencias.get(v)/valores.length).toFixed(4)}</td></tr>`).join("")}</tbody></table>`;
+                tabla.innerHTML = `
+                    <p class="font-bold mb-2">Tabla de frecuencias agrupadas</p>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr>
+                                <th class="p-1">Intervalo</th>
+                                <th class="p-1">Frecuencia</th>
+                                <th class="p-1">Frecuencia relativa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${intervalos.map((intervalo, i) => `
+                                <tr>
+                                    <td class="p-1">${etiquetas[i]}</td>
+                                    <td class="p-1">${intervalo.frecuencia}</td>
+                                    <td class="p-1">${formato(intervalo.frecuencia / valores.length)}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                    <p class="mt-2">Total de mediciones: ${valores.length}</p>
+                `;
             }
-            const esBarras = tipo === "bar";
-            const esDispersión = tipo === "scatter";
-            const datos = esDispersión ? valoresX.map((v, i) => ({ x: v, y: valoresY[i] })) : (esBarras ? unicos.map(v => frecuencias.get(v)) : valores);
-            miGrafica = new Chart(canvas.getContext("2d"), {
-                type: esDispersión ? "scatter" : (esBarras ? "bar" : "line"),
-                data: {
-                    labels: esDispersión || esBarras ? undefined : valores.map((_, i) => `Medición ${i+1}`),
-                    datasets: [{ label: esDispersión ? "Pares de datos X/Y" : (esBarras ? "Frecuencia por valor" : "Mediciones experimentales"), data: datos, borderColor: "#a855f7", backgroundColor: "rgba(168, 85, 247, 0.3)", fill: !esBarras && !esDispersión, tension: 0.3 }]
+
+        } else {
+            etiquetas = tipo === "bar"
+                ? unicos.map(String)
+                : valores.map((_, i) => `Medición ${i + 1}`);
+
+            datosGrafico = tipo === "bar"
+                ? unicos.map(valor => frecuencias.get(valor))
+                : valores;
+
+            titulo = tipo === "bar"
+                ? "Frecuencia por valor"
+                : "Mediciones experimentales";
+
+            tipoChart = tipo === "bar" ? "bar" : "line";
+
+            if (tabla) {
+                tabla.innerHTML = `
+                    <p class="font-bold mb-2">Tabla de frecuencias</p>
+                    <table class="w-full text-left">
+                        <thead>
+                            <tr>
+                                <th class="p-1">Valor</th>
+                                <th class="p-1">Frecuencia absoluta</th>
+                                <th class="p-1">Frecuencia relativa</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${unicos.map(valor => `
+                                <tr>
+                                    <td class="p-1">${valor}</td>
+                                    <td class="p-1">${frecuencias.get(valor)}</td>
+                                    <td class="p-1">${formato(frecuencias.get(valor) / valores.length)}</td>
+                                </tr>
+                            `).join("")}
+                        </tbody>
+                    </table>
+                    <p class="mt-2">Total de mediciones: ${valores.length}</p>
+                `;
+            }
+        }
+    }
+
+    // Destruir la gráfica anterior únicamente después de validar los datos.
+    if (miGrafica) {
+        miGrafica.destroy();
+        miGrafica = null;
+    }
+
+    miGrafica = new Chart(canvas.getContext("2d"), {
+        type: tipoChart,
+        data: {
+            labels: etiquetas,
+            datasets: [{
+                label: titulo,
+                data: datosGrafico,
+                borderColor: "#a855f7",
+                backgroundColor: "rgba(168, 85, 247, 0.3)",
+                borderWidth: 2,
+                fill: tipoChart === "line",
+                tension: 0.3,
+                pointRadius: tipoChart === "scatter" ? 4 : 2
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: {
+                    type: usarEscalaLineal ? "linear" : "category",
+                    title: {
+                        display: usarEscalaLineal,
+                        text: "X",
+                        color: "#f3e8ff"
+                    },
+                    ticks: { color: "#f3e8ff" },
+                    grid: { color: "rgba(168,85,247,0.12)" }
                 },
-                options: { responsive: true, maintainAspectRatio: false, scales: { x: { type: esDispersión ? "linear" : "category", title: { display: esDispersión, text: "X", color: "#f3e8ff" }, ticks: { color: "#f3e8ff" } }, y: { beginAtZero: !esDispersión, title: { display: esDispersión, text: "Y", color: "#f3e8ff" }, ticks: { color: "#f3e8ff" } } }, plugins: { legend: { labels: { color: "#f3e8ff" } } } }
-            });
-        }
-
-        function calcularProbabilidadZ() {
-            const campoX = document.getElementById("probX").value;
-            const campoMu = document.getElementById("probMu").value;
-            const campoSigma = document.getElementById("probSigma").value;
-            const x = Number(campoX), mu = Number(campoMu), sigma = Number(campoSigma);
-            if (campoX === "" || campoMu === "" || campoSigma === "" || ![x,mu,sigma].every(Number.isFinite)) { mostrarError("Complete todos los campos con valores numéricos válidos."); return; }
-            if (sigma <= 0) { mostrarError("La desviación estándar debe ser mayor que cero."); return; }
-            const z = (x - mu) / sigma;
-            document.getElementById("valZ").textContent = z.toFixed(4);
-            const prob = document.getElementById("valProbAcum");
-            if (prob) prob.textContent = probabilidadNormalEstandar(z).toFixed(4);
-        }
-
-        function calcularRelacionVariables() {
-            const x = parsear(document.getElementById("datosX").value);
-            const y = parsear(document.getElementById("datosY").value);
-            const salida = document.getElementById("resultadoVariables");
-            if (x.length < 2 || y.length < 2 || x.length !== y.length) { salida.textContent = "Ingrese al menos dos pares de datos numéricos válidos. X e Y deben tener la misma cantidad de valores."; return; }
-            const n = x.length, mx = calcularMedia(x), my = calcularMedia(y);
-            const sxx = x.reduce((s,v) => s + (v-mx)**2, 0);
-            const syy = y.reduce((s,v) => s + (v-my)**2, 0);
-            const sxy = x.reduce((s,v,i) => s + (v-mx)*(y[i]-my), 0);
-            if (sxx === 0 || syy === 0) { salida.textContent = "No se puede calcular la correlación: X e Y deben tener variación."; return; }
-            const r = sxy / Math.sqrt(sxx*syy), b = sxy/sxx, a = my-b*mx;
-            let interpretacion = Math.abs(r) >= 0.8 ? "fuerte" : Math.abs(r) >= 0.5 ? "moderada" : "débil";
-            const direccion = r > 0 ? "positiva" : r < 0 ? "negativa" : "nula";
-            salida.innerHTML = `<p><strong>Coeficiente de correlación (r):</strong> ${r.toFixed(4)}</p><p><strong>Regresión lineal:</strong> ŷ = ${a.toFixed(4)} ${b < 0 ? "−" : "+"} ${Math.abs(b).toFixed(4)}x</p><p><strong>Interpretación:</strong> La relación lineal es ${interpretacion} y ${direccion}.</p><p><strong>Procedimiento:</strong> Se calcularon las medias de X e Y, la covariación entre ambas variables y la pendiente b = Sxy/Sxx; luego se obtuvo a = media(Y) − b·media(X).</p>`;
-        }
-
-        const ejercicios = [
-            { titulo: "Ley de Coulomb", enunciado: "Calcula la fuerza electrostática entre dos cargas de 2 µC y 3 µC a 0.3 m.", formula: "F = k * (|q1*q2|) / r²", respuesta: 0.6 },
-            { titulo: "Campo Eléctrico", enunciado: "Halla la magnitud del campo eléctrico creado por una carga de 5 µC a 0.5 m.", formula: "E = k * q / r²", respuesta: 180000 },
-            { titulo: "Ley de Ohm", enunciado: "Calcula la corriente en un circuito con resistencia de 20 Ω y voltaje de 120 V.", formula: "I = V / R", respuesta: 6 },
-            { titulo: "Potencia Eléctrica", enunciado: "Determina la potencia disipada por un resistor de 50 Ω recorrido por 2 A.", formula: "P = I² * R", respuesta: 200 },
-            { titulo: "Capacitancia", enunciado: "Calcula la carga en un condensador de 10 µF a 100 V.", formula: "Q = C * V", respuesta: 0.001 },
-            { titulo: "Campo Magnético (Solenoide)", enunciado: "Halla B en un solenoide de 500 espiras/m con 2 A.", formula: "B = µ₀ * n * I", respuesta: 0.001257 },
-            { titulo: "Fuerza Magnética", enunciado: "Calcula la fuerza magnética sobre una carga de 3 C que se mueve a 400 m/s perpendicularmente a un campo de 0.5 T (θ = 90°).", formula: "F = |q| * v * B * sin(θ)", respuesta: 600 },
-            { titulo: "Ley de Faraday", enunciado: "Halla la fem inducida si el flujo cambia de 0.2 Wb a 0.8 Wb en 0.1 s.", formula: "ε = - ΔΦ / Δt", respuesta: 6 },
-            { titulo: "Reactancia Inductiva", enunciado: "Calcula X_L de una bobina de 0.1 H a 60 Hz.", formula: "X_L = 2 * π * f * L", respuesta: 37.699 },
-            { titulo: "Impedancia en AC", enunciado: "Halla Z en serie RL con R = 30 Ω y X_L = 40 Ω.", formula: "Z = √(R² + X_L²)", respuesta: 50 }
-        ];
-
-        let ejercicioActualIdx = 0;
-        function cargarEj(idx) {
-            ejercicioActualIdx = idx;
-            const ej = ejercicios[idx];
-            document.getElementById("ejTitulo").textContent = `Ejercicio ${idx + 1}: ${ej.titulo}`;
-            document.getElementById("ejEnunciado").textContent = ej.enunciado;
-            document.getElementById("ejFormula").textContent = ej.formula;
-            document.getElementById("ejRespUser").value = "";
-            document.getElementById("ejFeedback").textContent = "";
-        }
-
-        function verificarEj() {
-            const val = parseFloat(document.getElementById("ejRespUser").value);
-            const feedbackElem = document.getElementById("ejFeedback");
-            const ej = ejercicios[ejercicioActualIdx];
-            if (isNaN(val)) {
-                feedbackElem.textContent = "Ingrese un valor válido.";
-                feedbackElem.className = "text-yellow-400 font-bold";
-                return;
-            }
-            if (Math.abs(val - ej.respuesta) <= Math.max(0.01, Math.abs(ej.respuesta * 0.02))) {
-                feedbackElem.textContent = `¡Correcto! Respuesta esperada: ${ej.respuesta}. Revise la fórmula y sustituya los datos del enunciado para comprobar el procedimiento.`;
-                feedbackElem.className = "text-green-400 font-bold";
-            } else {
-                feedbackElem.textContent = `Incorrecto. Esperado: ${ej.respuesta}`;
-                feedbackElem.className = "text-red-400 font-bold";
+                y: {
+                    beginAtZero: comenzarEnCero,
+                    title: {
+                        display: usarEscalaLineal,
+                        text: "Y",
+                        color: "#f3e8ff"
+                    },
+                    ticks: { color: "#f3e8ff" },
+                    grid: { color: "rgba(168,85,247,0.12)" }
+                }
+            },
+            plugins: {
+                legend: {
+                    labels: { color: "#f3e8ff" }
+                }
             }
         }
+    });
+}
 
-        function activarDictadoVoz() { alert("🎙️ Asistente de voz activo."); }
-        function procesarFoto(e) { if(e.target.files[0]) alert("📷 Imagen cargada con éxito."); }
+/* =========================================================
+   9. PROBABILIDAD Y DISTRIBUCIÓN NORMAL
+   ========================================================= */
 
-        window.onload = function() {
-            cambiarModulo('estadistica');
-        };
-    </script>
-</body>
-</html>
+function calcularProbabilidadZ() {
+    const x = obtenerNumero("probX");
+    const mu = obtenerNumero("probMu");
+    const sigma = obtenerNumero("probSigma");
+
+    if (x === null || mu === null || sigma === null) {
+        mostrarError("Complete todos los campos con números válidos.");
+        return;
+    }
+
+    if (sigma <= 0) {
+        mostrarError("La desviación estándar debe ser mayor que cero.");
+        return;
+    }
+
+    const z = (x - mu) / sigma;
+    const probabilidad = probabilidadNormalEstandar(z);
+
+    document.getElementById("valZ").textContent = formato(z);
+    document.getElementById("valProbAcum").textContent =
+        formato(probabilidad);
+
+    const porcentaje = document.getElementById("valPorcentaje");
+
+    if (porcentaje) {
+        porcentaje.textContent = `${(probabilidad * 100).toFixed(2)}%`;
+    }
+}
+
+/* =========================================================
+   10. CORRELACIÓN DE PEARSON Y REGRESIÓN LINEAL
+   ========================================================= */
+
+function calcularRelacionVariables() {
+    const campoX = document.getElementById("datosX");
+    const campoY = document.getElementById("datosY");
+    const salida = document.getElementById("resultadoVariables");
+
+    if (!campoX || !campoY || !salida) return;
+
+    const x = parsear(campoX.value);
+    const y = parsear(campoY.value);
+
+    if (
+        x.length < 2 ||
+        y.length < 2 ||
+        x.length !== y.length
+    ) {
+        salida.textContent =
+            "Ingrese al menos dos pares de datos válidos. " +
+            "X e Y deben tener la misma cantidad de valores.";
+        return;
+    }
+
+    const n = x.length;
+    const mx = calcularMedia(x);
+    const my = calcularMedia(y);
+
+    const sxx = x.reduce((s, v) => s + (v - mx) ** 2, 0);
+    const syy = y.reduce((s, v) => s + (v - my) ** 2, 0);
+
+    const sxy = x.reduce(
+        (s, v, i) => s + (v - mx) * (y[i] - my),
+        0
+    );
+
+    if (sxx === 0 || syy === 0) {
+        salida.textContent =
+            "No se puede calcular la correlación porque X e Y " +
+            "deben presentar variación.";
+        return;
+    }
+
+    const rCalculado = sxy / Math.sqrt(sxx * syy);
+    const r = Math.max(-1, Math.min(1, rCalculado));
+
+    const pendiente = sxy / sxx;
+    const intercepto = my - pendiente * mx;
+    const r2 = r * r;
+
+    const fuerza = Math.abs(r) >= 0.8
+        ? "fuerte"
+        : Math.abs(r) >= 0.5
+            ? "moderada"
+            : "débil";
+
+    const direccion = r > 0
+        ? "positiva"
+        : r < 0
+            ? "negativa"
+            : "nula";
+
+    const signo = pendiente < 0 ? "−" : "+";
+
+    salida.innerHTML = `
+        <p><strong>Número de pares:</strong> ${n}</p>
+        <p><strong>Media de X:</strong> ${formato(mx)}</p>
+        <p><strong>Media de Y:</strong> ${formato(my)}</p>
+        <p><strong>Coeficiente de Pearson (r):</strong> ${formato(r)}</p>
+        <p><strong>Coeficiente de determinación (R²):</strong> ${formato(r2)}</p>
+        <p><strong>Pendiente (b):</strong> ${formato(pendiente)}</p>
+        <p><strong>Intercepto (a):</strong> ${formato(intercepto)}</p>
+        <p><strong>Regresión lineal:</strong>
+            ŷ = ${formato(intercepto)} ${signo} ${formato(Math.abs(pendiente))}x
+        </p>
+        <p><strong>Interpretación:</strong>
+            La relación lineal observada es ${fuerza} y ${direccion}.
+        </p>
+        <p><strong>Procedimiento:</strong>
+            Se calcularon las medias, Sxx, Syy y Sxy.
+            Después se obtuvo b = Sxy/Sxx, a = media(Y) − b·media(X)
+            y r = Sxy/√(Sxx·Syy).
+        </p>
+        <p class="text-purple-300">
+            La correlación describe asociación lineal; no demuestra causalidad.
+            La fuerza se clasifica mediante criterios orientativos.
+        </p>
+    `;
+}
+
+/* =========================================================
+   11. EJERCICIOS INTERACTIVOS DE FÍSICA II
+   ========================================================= */
+
+const ejercicios = [
+    {
+        titulo: "Ley de Coulomb",
+        enunciado: "Calcula la magnitud de la fuerza entre dos cargas de 2 µC y 3 µC separadas 0.3 m. Usa k = 9 × 10⁹ N·m²/C².",
+        formula: "F = k · |q1 · q2| / r²",
+        respuesta: 0.54,
+        unidad: "N",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Campo Eléctrico",
+        enunciado: "Halla la magnitud del campo eléctrico de una carga de 5 µC a 0.5 m. Usa k = 9 × 10⁹ N·m²/C².",
+        formula: "E = k · |q| / r²",
+        respuesta: 180000,
+        unidad: "N/C",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Ley de Ohm",
+        enunciado: "Calcula la corriente en un circuito con resistencia de 20 Ω y voltaje de 120 V.",
+        formula: "I = V / R",
+        respuesta: 6,
+        unidad: "A",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Potencia Eléctrica",
+        enunciado: "Determina la potencia disipada por un resistor de 50 Ω recorrido por una corriente de 2 A.",
+        formula: "P = I² · R",
+        respuesta: 200,
+        unidad: "W",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Capacitancia",
+        enunciado: "Calcula la carga almacenada en un condensador de 10 µF conectado a 100 V.",
+        formula: "Q = C · V",
+        respuesta: 0.001,
+        unidad: "C",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Campo Magnético (Solenoide)",
+        enunciado: "Halla el campo magnético de un solenoide de 500 espiras/m recorrido por 2 A. Usa µ₀ = 4π × 10⁻⁷ T·m/A.",
+        formula: "B = µ₀ · n · I",
+        respuesta: 0.0012566370614,
+        unidad: "T",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Fuerza Magnética",
+        enunciado: "Calcula la fuerza sobre una carga de 3 C que se mueve a 400 m/s perpendicularmente a un campo de 0.5 T.",
+        formula: "F = |q| · v · B · sen(θ)",
+        respuesta: 600,
+        unidad: "N",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Ley de Faraday",
+        enunciado: "Halla la magnitud de la fem inducida si el flujo cambia de 0.2 Wb a 0.8 Wb en 0.1 s.",
+        formula: "|ε| = |ΔΦ / Δt|",
+        respuesta: 6,
+        unidad: "V",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Reactancia Inductiva",
+        enunciado: "Calcula la reactancia de una bobina de 0.1 H a una frecuencia de 60 Hz.",
+        formula: "XL = 2 · π · f · L",
+        respuesta: 2 * Math.PI * 60 * 0.1,
+        unidad: "Ω",
+        toleranciaRelativa: 0.02
+    },
+    {
+        titulo: "Impedancia en AC",
+        enunciado: "Halla la impedancia de un circuito RL en serie con R = 30 Ω y XL = 40 Ω.",
+        formula: "Z = √(R² + XL²)",
+        respuesta: 50,
+        unidad: "Ω",
+        toleranciaRelativa: 0.02
+    }
+];
+
+let ejercicioActualIdx = 0;
+
+function cargarEj(idx) {
+    if (!Number.isInteger(idx) || idx < 0 || idx >= ejercicios.length) {
+        return;
+    }
+
+    ejercicioActualIdx = idx;
+
+    const ej = ejercicios[idx];
+
+    const titulo = document.getElementById("ejTitulo");
+    const enunciado = document.getElementById("ejEnunciado");
+    const formula = document.getElementById("ejFormula");
+    const respuesta = document.getElementById("ejRespUser");
+    const feedback = document.getElementById("ejFeedback");
+
+    if (!titulo || !enunciado || !formula || !respuesta || !feedback) {
+        return;
+    }
+
+    titulo.textContent = `Ejercicio ${idx + 1}: ${ej.titulo}`;
+    enunciado.textContent = ej.enunciado;
+    formula.textContent = ej.formula;
+    respuesta.value = "";
+    respuesta.placeholder = `Respuesta en ${ej.unidad}`;
+    feedback.textContent = "";
+    feedback.className = "font-bold";
+}
+
+function verificarEj() {
+    const campo = document.getElementById("ejRespUser");
+    const feedback = document.getElementById("ejFeedback");
+
+    if (!campo || !feedback) return;
+
+    if (campo.value.trim() === "") {
+        feedback.textContent = "Ingrese una respuesta numérica.";
+        feedback.className = "text-yellow-400 font-bold";
+        return;
+    }
+
+    const valor = Number(campo.value);
+    const ej = ejercicios[ejercicioActualIdx];
+
+    if (!Number.isFinite(valor)) {
+        feedback.textContent = "Ingrese un número válido.";
+        feedback.className = "text-yellow-400 font-bold";
+        return;
+    }
+
+    const tolerancia = Math.max(
+        1e-12,
+        Math.abs(ej.respuesta) * ej.toleranciaRelativa
+    );
+
+    if (Math.abs(valor - ej.respuesta) <= tolerancia) {
+        feedback.textContent =
+            `¡Correcto! Resultado esperado: ${formato(ej.respuesta, 6)} ${ej.unidad}.`;
+
+        feedback.className = "text-green-400 font-bold";
+    } else {
+        feedback.textContent =
+            `Respuesta incorrecta. Revisa la fórmula, las unidades y la sustitución de datos.`;
+
+        feedback.className = "text-red-400 font-bold";
+    }
+}
+
+/* =========================================================
+   12. HERRAMIENTAS DE VOZ Y FOTOGRAFÍA
+   ========================================================= */
+
+function activarDictadoVoz() {
+    const SpeechRecognition =
+        window.SpeechRecognition || window.webkitSpeechRecognition;
+
+    if (!SpeechRecognition) {
+        mostrarError(
+            "El dictado por voz no está disponible en este navegador. " +
+            "Prueba un navegador compatible con reconocimiento de voz."
+        );
+        return;
+    }
+
+    const campo = prompt(
+        "Indica el ID del campo donde deseas insertar el dictado:",
+        "inputEstadistica"
+    );
+
+    if (!campo) return;
+
+    const destino = document.getElementById(campo);
+
+    if (!destino || !("value" in destino)) {
+        mostrarError("No se encontró un campo de texto válido con ese ID.");
+        return;
+    }
+
+    const reconocimiento = new SpeechRecognition();
+
+    reconocimiento.lang = "es-GT";
+    reconocimiento.interimResults = false;
+    reconocimiento.continuous = false;
+
+    reconocimiento.onresult = function(evento) {
+        const texto = evento.results[0][0].transcript;
+
+        if (destino.value.trim()) {
+            destino.value += ", " + texto;
+        } else {
+            destino.value = texto;
+        }
+    };
+
+    reconocimiento.onerror = function() {
+        mostrarError(
+            "No se pudo completar el dictado. Revisa los permisos del micrófono."
+        );
+    };
+
+    reconocimiento.start();
+}
+
+function procesarFoto(evento) {
+    const archivo = evento?.target?.files?.[0];
+
+    if (!archivo) return;
+
+    if (!archivo.type.startsWith("image/")) {
+        mostrarError("Selecciona un archivo de imagen válido.");
+        evento.target.value = "";
+        return;
+    }
+
+    mostrarError(
+        "La imagen se seleccionó correctamente, pero este sitio todavía " +
+        "no tiene implementado el reconocimiento automático del contenido de la foto."
+    );
+}
+
+/* =========================================================
+   13. INICIALIZACIÓN
+   ========================================================= */
+
+window.addEventListener("load", function() {
+    cambiarModulo("estadistica");
+
+    // Actualiza el error estándar del panel con los datos de ejemplo.
+    if (document.getElementById("inputExpDashboard")) {
+        procesarDatosExpDashboard();
+    }
+
+    // Actualiza el puntaje Z inicial.
+    if (
+        document.getElementById("dashX") &&
+        document.getElementById("dashMu") &&
+        document.getElementById("dashSigma")
+    ) {
+        calcularDashZ();
+    }
+});
+</script>
